@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>yolov5_ros</name>
+  <version>0.0.0</version>
+  <description>The yolov5_ros package</description>
+
+  <maintainer email="alex-beh@todo.todo">alex-beh</maintainer>
+
+  <license>TODO</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <depend>roscpp</depend>
+  <depend>sensor_msgs</depend>
+  <depend>std_msgs</depend>
+  <depend>image_transport</depend>
+  <depend>cv_bridge</depend>
+
+  <build_depend>message_generation</build_depend>
+  <exec_depend>message_runtime</exec_depend>
+
+  <!-- The export tag contains other, unspecified, tags -->
+  <export>
+    <!-- Other tools can request additional information be placed here -->
+  </export>
+
+</package>
