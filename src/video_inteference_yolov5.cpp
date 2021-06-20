@@ -35,10 +35,15 @@ class YOLOV5_ROS{
         
         std::string engine_name;
         nh.param("model_name", engine_name, std::string("gesture.engine"));
-        
+
         nh.param("nms_threshold", m_nms_thresh, 0.4);
         nh.param("conf_thresh", m_conf_thresh, 0.5);
         nh.param("batch_size", m_batch_size, 1);
+
+        ROS_INFO("\033[1;32m----> engine_name: %s\033[0m",engine_name.c_str());
+        ROS_INFO("\033[1;32m----> nms_threshold: %f\033[0m",m_nms_thresh);
+        ROS_INFO("\033[1;32m----> conf_thresh: %f\033[0m",m_conf_thresh);
+        ROS_INFO("\033[1;32m----> batch_size: %d\033[0m",m_batch_size);
 
         if(!readFile(engine_name))
             return;
@@ -193,7 +198,16 @@ class YOLOV5_ROS{
         cv_bridge::CvImage img_bridge;
         image_transport::Publisher m_image_pub;
         image_transport::Subscriber m_sub;
-        const char *class_name[80] = {"palm", "fist"};
+        // const char *class_name[80] = {"palm", "fist"};
+        const char *class_name[80] = {"person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "traffic light",
+                "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow",
+                "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee",
+                "skis", "snowboard", "sports ball", "kite", "baseball bat", "baseball glove", "skateboard", "surfboard",
+                "tennis racket", "bottle", "wine glass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple",
+                "sandwich", "orange", "broccoli", "carrot", "hot dog", "pizza", "donut", "cake", "chair", "couch",
+                "potted plant", "bed", "dining table", "toilet", "tv", "laptop", "mouse", "remote", "keyboard", "cell phone",
+                "microwave", "oven", "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors", "teddy bear",
+                "hair drier", "toothbrush"};
 
         double m_nms_thresh,m_conf_thresh;
         int m_batch_size;
