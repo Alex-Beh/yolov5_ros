@@ -101,6 +101,8 @@ class YOLOV5_ROS{
 
         // =======================================================
         //TODO: Get the information from camera_info
+        //double dWidth = cap.get(CAP_PROP_FRAME_WIDTH); //get the width of frames of the video
+        //double dHeight = cap.get(CAP_PROP_FRAME_HEIGHT); //get the height of frames of the video
         double dWidth = 640.0; //get the width of frames of the video
         double dHeight = 480.0; //get the height of frames of the video
 
@@ -159,6 +161,11 @@ class YOLOV5_ROS{
             for (size_t j = 0; j < res.size(); j++) {
                 cv::Rect r = get_rect(pr_img, res[j].bbox);
                 cv::rectangle(pr_img, r, cv::Scalar(0x27, 0xC1, 0x36), 2);
+
+                double mid_x = r.x + (r.width / 2);
+                double mid_y = r.y + (r.height / 2);
+                cv::circle(pr_img, cv::Point(mid_x, mid_y), 3, cv::Scalar(0, 0, 255), -1);
+
                 cv::putText(pr_img, class_name[(int)res[j].class_id], cv::Point(r.x, r.y - 1), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar(0xFF, 0xFF, 0xFF), 2);
             }
         }
@@ -198,16 +205,16 @@ class YOLOV5_ROS{
         cv_bridge::CvImage img_bridge;
         image_transport::Publisher m_image_pub;
         image_transport::Subscriber m_sub;
-        // const char *class_name[80] = {"palm", "fist"};
-        const char *class_name[80] = {"person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "traffic light",
-                "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow",
-                "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee",
-                "skis", "snowboard", "sports ball", "kite", "baseball bat", "baseball glove", "skateboard", "surfboard",
-                "tennis racket", "bottle", "wine glass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple",
-                "sandwich", "orange", "broccoli", "carrot", "hot dog", "pizza", "donut", "cake", "chair", "couch",
-                "potted plant", "bed", "dining table", "toilet", "tv", "laptop", "mouse", "remote", "keyboard", "cell phone",
-                "microwave", "oven", "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors", "teddy bear",
-                "hair drier", "toothbrush"};
+        const char *class_name[80] = {"palm", "fist"};
+        // const char *class_name[80] = {"person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "traffic light",
+        //         "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow",
+        //         "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee",
+        //         "skis", "snowboard", "sports ball", "kite", "baseball bat", "baseball glove", "skateboard", "surfboard",
+        //         "tennis racket", "bottle", "wine glass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple",
+        //         "sandwich", "orange", "broccoli", "carrot", "hot dog", "pizza", "donut", "cake", "chair", "couch",
+        //         "potted plant", "bed", "dining table", "toilet", "tv", "laptop", "mouse", "remote", "keyboard", "cell phone",
+        //         "microwave", "oven", "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors", "teddy bear",
+        //         "hair drier", "toothbrush"};
 
         double m_nms_thresh,m_conf_thresh;
         int m_batch_size;
