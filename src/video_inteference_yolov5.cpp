@@ -4,6 +4,9 @@
 
 #include <cv_bridge/cv_bridge.h>
 #include <image_transport/image_transport.h>
+#include <message_filters/subscriber.h>
+#include <message_filters/time_synchronizer.h>
+#include <message_filters/sync_policies/approximate_time.h>
 
 #include <opencv2/opencv.hpp>
 
@@ -28,11 +31,16 @@ static float prob[1 * OUTPUT_SIZE];
 
 class YOLOV5_ROS{
     public:
-    YOLOV5_ROS(ros::NodeHandle nh){
-        image_transport::ImageTransport it(nh);
+    YOLOV5_ROS(ros::NodeHandle &nh): nodeHandle_(nh)
+    {
+        image_transport::ImageTransport it(nodeHandle_);
         m_image_pub = it.advertise("/yolov5_video", 1);
-        m_sub = it.subscribe("/usb_cam/image_raw", 1, &YOLOV5_ROS::imageCallback,this);
         
+        m_rgb_img_sub.subscribe(nodeHandle_,"/spencer/sensors/rgbd_front_top/color/image_raw", 1);
+        m_depth_img_sub.subscribe(nodeHandle_, "/spencer/sensors/rgbd_front_top/aligned_depth_to_color/image_raw", 1);
+        sync.reset(new Synchronizer(SyncPolicy(10), m_rgb_img_sub,m_depth_img_sub));
+        sync->registerCallback(boost::bind(&YOLOV5_ROS::imageCallback, this, _1, _2));
+
         std::string engine_name;
         nh.param("model_name", engine_name, std::string("gesture.engine"));
 
@@ -117,11 +125,12 @@ class YOLOV5_ROS{
         cudaStreamSynchronize(stream);
     }
 
-    void imageCallback(const sensor_msgs::ImageConstPtr& msg){
-        cv_bridge::CvImagePtr cv_ptr;
+    void imageCallback(const sensor_msgs::ImageConstPtr& rgb_image_msg , const sensor_msgs::ImageConstPtr& depth_image_msg){
+        cv_bridge::CvImagePtr rgb_cv_ptr,depth_cv_ptr;
         try
         {
-            cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
+            rgb_cv_ptr = cv_bridge::toCvCopy(rgb_image_msg, sensor_msgs::image_encodings::BGR8);
+            depth_cv_ptr = cv_bridge::toCvCopy(depth_image_msg, sensor_msgs::image_encodings::TYPE_16UC1);
         }
         catch (cv_bridge::Exception& e)
         {
@@ -129,8 +138,8 @@ class YOLOV5_ROS{
         return;
         }
 
-        if (cv_ptr->image.empty()) return;
-        cv::Mat pr_img = preprocess_img(cv_ptr->image, INPUT_W, INPUT_H); // letterbox BGR to RGB & resize
+        if (rgb_cv_ptr->image.empty() || depth_cv_ptr->image.empty()) return;
+        cv::Mat pr_img = preprocess_img(rgb_cv_ptr->image, INPUT_W, INPUT_H); // letterbox BGR to RGB & resize
 
         int i=0;
         int fcount = 1;
@@ -156,6 +165,7 @@ class YOLOV5_ROS{
             nms(res, &prob[b * OUTPUT_SIZE], m_conf_thresh, m_nms_thresh);
         }
 
+        float pixel_distance;
         for (int b = 0; b < fcount; b++) {
             auto& res = batch_res[b];
             for (size_t j = 0; j < res.size(); j++) {
@@ -164,9 +174,12 @@ class YOLOV5_ROS{
 
                 double mid_x = r.x + (r.width / 2);
                 double mid_y = r.y + (r.height / 2);
+                pixel_distance = 0.001 * (depth_cv_ptr->image.at<u_int16_t>(mid_y, mid_x));
+                char str[200];
+                sprintf(str,"%s : %.2f m",class_name[(int)res[j].class_id],pixel_distance);
                 cv::circle(pr_img, cv::Point(mid_x, mid_y), 3, cv::Scalar(0, 0, 255), -1);
-
-                cv::putText(pr_img, class_name[(int)res[j].class_id], cv::Point(r.x, r.y - 1), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar(0xFF, 0xFF, 0xFF), 2);
+                cv::putText(pr_img,str, cv::Point(r.x, r.y - 1), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar(0xFF, 0xFF, 0xFF), 2);
+                printf("pixel_distance of %s: %f\n",class_name[(int)res[j].class_id],pixel_distance);
             }
         }
 
@@ -204,7 +217,14 @@ class YOLOV5_ROS{
 
         cv_bridge::CvImage img_bridge;
         image_transport::Publisher m_image_pub;
-        image_transport::Subscriber m_sub;
+
+        ros::NodeHandle nodeHandle_;
+        message_filters::Subscriber<sensor_msgs::Image> m_rgb_img_sub;
+        message_filters::Subscriber<sensor_msgs::Image> m_depth_img_sub;
+        typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image> SyncPolicy;
+        typedef message_filters::Synchronizer<SyncPolicy> Synchronizer;
+        boost::shared_ptr<Synchronizer> sync;
+
         const char *class_name[80] = {"palm", "fist"};
         // const char *class_name[80] = {"person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "traffic light",
         //         "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow",
@@ -226,10 +246,11 @@ int main(int argc, char* argv[])
     ros::init(argc, argv, "video_inteference_yolov5");
     ros::NodeHandle nh("~");
 
-    YOLOV5_ROS yolov5_gesture =YOLOV5_ROS(nh);
+    // YOLOV5_ROS yolov5_gesture =YOLOV5_ROS(nh);
+    YOLOV5_ROS YOLOV5_ROS(nh);
     ros::spin();
 
-    yolov5_gesture.clearMemory();
+    YOLOV5_ROS.clearMemory();
 
     return 0;
 }
