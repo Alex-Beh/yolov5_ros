@@ -1,6 +1,7 @@
 #include <ros/ros.h>
 #include <sensor_msgs/CameraInfo.h>
 #include <sensor_msgs/Image.h>
+#include <nav_msgs/Odometry.h>
 
 #include <cv_bridge/cv_bridge.h>
 #include <image_transport/image_transport.h>
@@ -38,8 +39,11 @@ class YOLOV5_ROS{
         
         m_rgb_img_sub.subscribe(nodeHandle_,"/spencer/sensors/rgbd_front_top/color/image_raw", 1);
         m_depth_img_sub.subscribe(nodeHandle_, "/spencer/sensors/rgbd_front_top/aligned_depth_to_color/image_raw", 1);
-        sync.reset(new Synchronizer(SyncPolicy(10), m_rgb_img_sub,m_depth_img_sub));
-        sync->registerCallback(boost::bind(&YOLOV5_ROS::imageCallback, this, _1, _2));
+        m_odom_sub.subscribe(nodeHandle_, "/tb_control/wheel_odom", 1);
+        sync.reset(new Synchronizer(SyncPolicy(10), m_rgb_img_sub,m_depth_img_sub,m_odom_sub));
+        sync->registerCallback(boost::bind(&YOLOV5_ROS::imageCallback, this, _1, _2,_3));
+
+        gesture_result_pub = nodeHandle_.advertise<std_msgs::Header>("/gesture_recognition_result", 10);
 
         std::string engine_name;
         nh.param("model_name", engine_name, std::string("gesture.engine"));
@@ -125,7 +129,13 @@ class YOLOV5_ROS{
         cudaStreamSynchronize(stream);
     }
 
-    void imageCallback(const sensor_msgs::ImageConstPtr& rgb_image_msg , const sensor_msgs::ImageConstPtr& depth_image_msg){
+    void imageCallback(const sensor_msgs::ImageConstPtr& rgb_image_msg , const sensor_msgs::ImageConstPtr& depth_image_msg, const nav_msgs::OdometryConstPtr& odom_msg){
+        
+        if(abs(odom_msg->twist.twist.linear.x)>0.01 and abs(odom_msg->twist.twist.angular.z)>0.01){
+            ROS_INFO("Only run hand detection model when the robot is not moving");
+            return;
+        }
+
         cv_bridge::CvImagePtr rgb_cv_ptr,depth_cv_ptr;
         try
         {
@@ -180,6 +190,23 @@ class YOLOV5_ROS{
                 cv::circle(pr_img, cv::Point(mid_x, mid_y), 3, cv::Scalar(0, 0, 255), -1);
                 cv::putText(pr_img,str, cv::Point(r.x, r.y - 1), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar(0xFF, 0xFF, 0xFF), 2);
                 printf("pixel_distance of %s: %f\n",class_name[(int)res[j].class_id],pixel_distance);
+
+                if(pixel_distance<m_distance_threshold){
+                    std_msgs::Header gesture_result_msg;
+                    gesture_result_msg.stamp = ros::Time::now();;
+
+                    if(m_lastGesture==""){
+                        m_lastGesture = class_name[(int)res[j].class_id];
+                        m_lastDetectedTime = ros::Time::now();
+                        gesture_result_msg.frame_id = class_name[(int)res[j].class_id];
+                    }
+                    else if(m_lastGesture!=class_name[(int)res[j].class_id] || ros::Time::now()-m_lastDetectedTime>timeout){
+                        m_lastGesture = class_name[(int)res[j].class_id];
+                        m_lastDetectedTime = ros::Time::now();
+                        gesture_result_msg.frame_id = class_name[(int)res[j].class_id];
+                    }
+                    gesture_result_pub.publish(gesture_result_msg);
+                }
             }
         }
 
@@ -219,13 +246,16 @@ class YOLOV5_ROS{
         image_transport::Publisher m_image_pub;
 
         ros::NodeHandle nodeHandle_;
+        ros::Publisher gesture_result_pub;
         message_filters::Subscriber<sensor_msgs::Image> m_rgb_img_sub;
         message_filters::Subscriber<sensor_msgs::Image> m_depth_img_sub;
-        typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image> SyncPolicy;
+        message_filters::Subscriber<nav_msgs::Odometry> m_odom_sub;
+
+        typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image,nav_msgs::Odometry> SyncPolicy;
         typedef message_filters::Synchronizer<SyncPolicy> Synchronizer;
         boost::shared_ptr<Synchronizer> sync;
 
-        const char *class_name[80] = {"palm", "fist"};
+        const char *class_name[80] = {"Palm", "Fist"};
         // const char *class_name[80] = {"person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "traffic light",
         //         "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow",
         //         "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee",
@@ -238,6 +268,11 @@ class YOLOV5_ROS{
 
         double m_nms_thresh,m_conf_thresh;
         int m_batch_size;
+        double m_distance_threshold = 0.7;
+
+        ros::Time m_lastDetectedTime;
+        std::string m_lastGesture = "";
+        ros::Duration timeout = ros::Duration(5.0);
 };
 
 

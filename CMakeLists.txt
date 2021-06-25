@@ -19,6 +19,8 @@ find_package(catkin REQUIRED COMPONENTS
   message_generation
   image_transport
   message_filters
+  sensor_msgs
+  nav_msgs
 )
 
 catkin_package(

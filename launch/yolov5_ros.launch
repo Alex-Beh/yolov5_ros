@@ -3,7 +3,7 @@
     <node pkg="yolov5_ros" type="yolov5_gesture" name="yolov5_gesture" output="screen" launch-prefix="">
         <param name="model_name" value="$(find yolov5_ros)/model/gesture.engine"/>
         <param name="nms_threshold" value="0.5"/> 
-        <param name="conf_thresh" value="0.8"/>
+        <param name="conf_thresh" value="0.7"/>
         <param name="batch_size" value="1"/>
         <remap from="/usb_cam/image_raw" to="/spencer/sensors/rgbd_front_top/color/image_raw"/>
     </node>
