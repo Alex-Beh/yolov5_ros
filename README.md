@@ -6,6 +6,10 @@ We have tested this repository on both x86 Ubuntu 20.04 and Nvidia Xavier NX.
 - cudnn: 8.2.1
 - tensorRT: 8.0.0
 
+<p align="center">
+     <img src=https://user-images.githubusercontent.com/66585558/123632594-b6bdbe80-d84a-11eb-8a71-37dd2cd3852b.gif height="500">
+</p>
+
 ## How to use
 You can set these model_name, nms_threshold, conf_thresh and batch_size in the following launch file
 ```
