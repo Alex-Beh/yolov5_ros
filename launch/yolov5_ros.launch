@@ -5,6 +5,10 @@
         <param name="nms_threshold" value="0.5"/> 
         <param name="conf_thresh" value="0.7"/>
         <param name="batch_size" value="1"/>
-        <remap from="/usb_cam/image_raw" to="/spencer/sensors/rgbd_front_top/color/image_raw"/>
+
+        <param name="min_distance" value="0.2"/>
+        <param name="max_distance" value="0.3"/>
+
+        <!-- <remap from="/usb_cam/image_raw" to="/spencer/sensors/rgbd_front_top/color/image_raw"/> -->
     </node>
 </launch>

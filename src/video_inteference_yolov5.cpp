@@ -52,10 +52,15 @@ class YOLOV5_ROS{
         nh.param("conf_thresh", m_conf_thresh, 0.5);
         nh.param("batch_size", m_batch_size, 1);
 
+        nh.param("min_distance", m_min_distance_threshold, 0.3);
+        nh.param("max_distance", m_max_distance_threshold, 0.7);
+
         ROS_INFO("\033[1;32m----> engine_name: %s\033[0m",engine_name.c_str());
         ROS_INFO("\033[1;32m----> nms_threshold: %f\033[0m",m_nms_thresh);
         ROS_INFO("\033[1;32m----> conf_thresh: %f\033[0m",m_conf_thresh);
         ROS_INFO("\033[1;32m----> batch_size: %d\033[0m",m_batch_size);
+        ROS_INFO("\033[1;32m----> min_distance: %f\033[0m",m_min_distance_threshold);
+        ROS_INFO("\033[1;32m----> max_distance: %f\033[0m",m_max_distance_threshold);
 
         if(!readFile(engine_name))
             return;
@@ -131,7 +136,7 @@ class YOLOV5_ROS{
 
     void imageCallback(const sensor_msgs::ImageConstPtr& rgb_image_msg , const sensor_msgs::ImageConstPtr& depth_image_msg, const nav_msgs::OdometryConstPtr& odom_msg){
         
-        if(abs(odom_msg->twist.twist.linear.x)>0.01 and abs(odom_msg->twist.twist.angular.z)>0.01){
+        if(abs(odom_msg->twist.twist.linear.x)>0.05 and abs(odom_msg->twist.twist.angular.z)>0.05){
             ROS_INFO("Only run hand detection model when the robot is not moving");
             return;
         }
@@ -191,20 +196,22 @@ class YOLOV5_ROS{
                 cv::putText(pr_img,str, cv::Point(r.x, r.y - 1), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar(0xFF, 0xFF, 0xFF), 2);
                 printf("pixel_distance of %s: %f\n",class_name[(int)res[j].class_id],pixel_distance);
 
-                if(pixel_distance<m_distance_threshold){
+                if(m_min_distance_threshold<pixel_distance&& pixel_distance<m_max_distance_threshold){
                     std_msgs::Header gesture_result_msg;
                     gesture_result_msg.stamp = ros::Time::now();;
+                    printf("\033[1;32m!!!!\033[0m pixel_distance of %s: %f\n",class_name[(int)res[j].class_id],pixel_distance);
 
-                    if(m_lastGesture==""){
-                        m_lastGesture = class_name[(int)res[j].class_id];
-                        m_lastDetectedTime = ros::Time::now();
-                        gesture_result_msg.frame_id = class_name[(int)res[j].class_id];
-                    }
-                    else if(m_lastGesture!=class_name[(int)res[j].class_id] || ros::Time::now()-m_lastDetectedTime>timeout){
-                        m_lastGesture = class_name[(int)res[j].class_id];
-                        m_lastDetectedTime = ros::Time::now();
-                        gesture_result_msg.frame_id = class_name[(int)res[j].class_id];
-                    }
+                    // if(m_lastGesture==""){
+                    //     m_lastGesture = class_name[(int)res[j].class_id];
+                    //     m_lastDetectedTime = ros::Time::now();
+                    //     gesture_result_msg.frame_id = class_name[(int)res[j].class_id];
+                    // }
+                    // else if(m_lastGesture!=class_name[(int)res[j].class_id] || ros::Time::now()-m_lastDetectedTime>timeout){
+                    //     m_lastGesture = class_name[(int)res[j].class_id];
+                    //     m_lastDetectedTime = ros::Time::now();
+                    //     gesture_result_msg.frame_id = class_name[(int)res[j].class_id];
+                    // }
+                    gesture_result_msg.frame_id = class_name[(int)res[j].class_id];
                     gesture_result_pub.publish(gesture_result_msg);
                 }
             }
@@ -268,7 +275,8 @@ class YOLOV5_ROS{
 
         double m_nms_thresh,m_conf_thresh;
         int m_batch_size;
-        double m_distance_threshold = 0.7;
+        double m_min_distance_threshold;
+        double m_max_distance_threshold;
 
         ros::Time m_lastDetectedTime;
         std::string m_lastGesture = "";
